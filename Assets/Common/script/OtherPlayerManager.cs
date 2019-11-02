@@ -2,11 +2,13 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using UnityEngine;
+using UnityEngine; 
+using System.Text;
+using System.Threading;
 
 public class OtherPlayerManager : MonoBehaviour
 {
-
+    public int uploadGameMapGap = 1;
     private GameObject getPlayerObjFromId(int _playerid)
     {
         GameObject[] players = GameObject.FindGameObjectsWithTag("player");
@@ -19,93 +21,132 @@ public class OtherPlayerManager : MonoBehaviour
         }
         return null;
     }
-    private void uploadMyGameStatus()
+    public void uploadMyGameStatus(int type = CodeConfig.TYPE_NORMAL_UPLOAD)
     {
-        GameObject[] players = GameObject.FindGameObjectsWithTag("player");
-        string s = "";
-        foreach (GameObject aplyer in players)
+        StringBuilder SB = new StringBuilder();
+        foreach (GameObject aplyer in MyPlayer.players)
         {
-            int pid = aplyer.GetComponent<Player>().playerid;
             Transform pTransform = aplyer.GetComponent<Transform>();
-            float x = pTransform.position.x;
-            float y = pTransform.position.y;
-
-            s = s + pid + "," + x + "," + y + "|";
-        }
-        MyPlayer.tcpClient.sendMsg(CodeConfig.TYPE_UPLOAD_MY_MAP, s);
+            SB.Append(aplyer.GetComponent<Player>().playerid + "," + pTransform.position.x + "," + pTransform.position.y + "," + pTransform.localEulerAngles.z + "|");
+        } 
+        MyPlayer.tcpClient.sendMsg(CodeConfig.TYPE_UPLOAD_MY_MAP, SB.ToString(), type);
+        
     }
-    private void updateMyMap(String mapStr)
+    private void updateMyMap(String mapStr, bool setAll = false)
     {
-        List<string> playerMapStrList = new List<string>();
-        string s1 = "";
+        List<string> playerMapStrList = new List<string>(); 
+        StringBuilder SB = new StringBuilder();
+        Debug.Log(mapStr);
         for (int i=0; i<mapStr.Length; i++)
         {
             if (mapStr[i] != '|')
-            {
-                s1 += mapStr[i];
+            { 
+                SB.Append(mapStr[i]);
             } else
             {
-                s1 = "";
-                playerMapStrList.Add(s1);
+                playerMapStrList.Add(SB.ToString());
+                Debug.Log(SB.ToString());
+                SB.Clear();
             }
         }
+        
         foreach (string s in playerMapStrList)
         {
-            int i = 0;
-            string idStr = "";
+            Debug.Log("s1="  + s);
+            int i = 0; 
             for (; s[i] != ','; i++)
-            {
-                idStr += s[i];
+            { 
+                SB.Append(s[i]);
             }
-            int pid = Convert.ToInt32(idStr);
-            string xStr = "";
-            for(; s[i] != ','; i++)
-            {
-                xStr += s[i];
+          
+            int pid = Convert.ToInt32(SB.ToString());
+            SB.Clear(); 
+            for(i++; s[i] != ','; i++)
+            { 
+                SB.Append(s[i]);
             }
-            double x = Convert.ToDouble(xStr);
-            string yStr = "";
-            for(; i<s.Length; i++)
+            double x = Convert.ToDouble(SB.ToString());
+            SB.Clear();
+            for(i++; i<s.Length && s[i] != ','; i++)
             {
-                yStr += s[i];
+                SB.Append(s[i]);
+                
             }
-            double y = Convert.ToDouble(yStr);
-            setPlayerPosition(pid, (float)x, (float)y);
+            double y = Convert.ToDouble(SB.ToString());
+            SB.Clear();
+            for (i++; i<s.Length; i++)
+            {
+                SB.Append(s[i]);
+            } 
+            double rz = Convert.ToDouble(SB.ToString());
+            SB.Clear();
+            setPlayerPosition(pid, (float)x, (float)y, (float)rz, setAll);
         }
 
 
     }
-    public void setPlayerPosition(int pid, float x, float y)
+    public void setPlayerPosition(int pid, float x, float y, float rz, bool setAll = false)
     {
+        Debug.Log("pid=" + pid + ",x=" + x + ",y=" + y + ",rz=" + rz);
+        if ((!setAll) && pid == MyPlayer.playerid && MyPlayer.loged)
+        {
+            return;
+        }
         GameObject playerObj = getPlayerObjFromId(pid);
         float z = playerObj.GetComponent<Transform>().position.z;
-        playerObj.GetComponent<Transform>().position.Set(x, y, z);
+        playerObj.GetComponent<Transform>().position = new Vector3(x, y, z);
+        playerObj.GetComponent<Transform>().rotation = Quaternion.Euler(0, 0, rz);
     }
     public void HandleMsg(MyJson myJson)
     { 
         if (myJson.playerid == MyPlayer.playerid)
         {
+            if (myJson.type == CodeConfig.TYPE_NEW_CLIENT)
+            {
+                if (!MyPlayer.loged)
+                {
+                    MyPlayer.loged = true; 
+                    MyPlayer.showNoticeText("登陆成功");
+                }
+            }
             return;
-        }
-        GameObject playerObj = getPlayerObjFromId(myJson.playerid);
-        Player player = playerObj.GetComponent<Player>();
-        switch(myJson.type)
+
+        } else if (myJson.playerid == CodeConfig.SERVER_PLAYER_ID)
         {
-            case CodeConfig.TYPE_NEW_CLIENT:
-                Debug.Log("new client, playerid=" + myJson.playerid);
-                uploadMyGameStatus();
-                break;
-            case CodeConfig.TYPE_MOVE_HOR:
-                int _dir = Convert.ToInt32(myJson.msg);
-                player.Move(_dir);
-                break;
-            case CodeConfig.TYPE_JUMP:
-                player.Jump();
-                break;
-            case CodeConfig.TYPE_UPDATE_MAP:
-                updateMyMap(myJson.msg);
-                break;  
+            switch(myJson.type)
+            { 
+                case CodeConfig.TYPE_UPDATE_MAP:
+                    updateMyMap(myJson.msg, true);
+                    break;
+            } 
+        } else
+        {
+            GameObject playerObj = getPlayerObjFromId(myJson.playerid);
+            Player player = playerObj.GetComponent<Player>();
+            switch (myJson.type)
+            {
+                case CodeConfig.TYPE_NEW_CLIENT:
+                    Debug.Log("new client, playerid=" + myJson.playerid);
+                    uploadMyGameStatus();
+                    MyPlayer.showNoticeText(getPlayerObjFromId(myJson.playerid).name + "已上线");
+                    break;
+                case CodeConfig.TYPE_MOVE_HOR:
+                    int _dir = Convert.ToInt32(myJson.msg);
+                    player.Move(_dir);
+                    break;
+                case CodeConfig.TYPE_JUMP:
+                    player.Jump();
+                    break;
+                case CodeConfig.TYPE_UPLOAD_MY_MAP:
+                    updateMyMap(myJson.msg);
+                    break;
+                case CodeConfig.TYPE_CLIENT_EXIT:
+                    MyPlayer.showNoticeText(getPlayerObjFromId(myJson.playerid).name + "已下线");
+                    break;
+
+            }
         }
+        
     }
     private void Awake()
     {
@@ -114,12 +155,10 @@ public class OtherPlayerManager : MonoBehaviour
 
     void Start()
     {
-        
     }
 
     // Update is called once per frame
     void Update()
-    {
-        
+    { 
     }
 }

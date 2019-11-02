@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Text;
 using UnityEngine;
 
 public class MyJson
@@ -17,47 +18,48 @@ public class MyJson
     public MyJson(string j)
     {
         int i = 0;
-        for (; i<j.Length && j[i++] != ':';);
-        string idStr = "";
+        for (; i<j.Length && j[i++] != ':';); 
+        StringBuilder SB = new StringBuilder();
         for (; i<j.Length; i++)
         {
             if (j[i] !=',')
-            {
-                idStr += j[i];
+            { 
+                SB.Append(j[i]);
             } else
             {
                 break;
             }
         }
-        playerid = Convert.ToInt32(idStr);
+        playerid = Convert.ToInt32(SB.ToString());
 
-        for (; i < j.Length && j[i++] != ':';) ;
-        string typeStr = "";
+        for (; i < j.Length && j[i++] != ':';) ; 
+        SB.Clear();
         for(; i<j.Length; i++)
         {
             if (j[i] != ',')
-            {
-                typeStr += j[i]; 
+            { 
+                SB.Append(j[i]);
             } else
             {
                 break;
             }
         }
-        type = Convert.ToInt32(typeStr);
+        type = Convert.ToInt32(SB.ToString());
 
-        for (; i < j.Length && j[i++] != ':';) ;
-        msg = ""; 
+        for (; i < j.Length && j[i++] != ':';) ; 
+        SB.Clear();
 
         for (i += 2; i<j.Length; i++)
         { 
             if (j[i] != '\'')
-            {
-                msg += j[i];
+            { 
+                SB.Append(j[i]);
             } else
             {
                 break;
             }
         }
+        this.msg = SB.ToString();
         Debug.Log(this.ToString());
     } 
 

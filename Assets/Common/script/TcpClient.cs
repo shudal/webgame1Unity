@@ -14,33 +14,45 @@ public class TcpClient : MonoBehaviour {
     Socket clientSocket;
     const int maxn = 1024;
     Queue<MyJson> msgs = new Queue<MyJson>();
-    public void sendMsg(int type, string msg)
+    public void sendMsg(int type, string msg, int opType = CodeConfig.TYPE_NORMAL_UPLOAD)
     {
-        int _playerid = MyPlayer.playerid;
-        try
+        new Thread(() =>
         {
-            string sendJson = "{'playerid':" + _playerid + ", 'type':" + type +",'msg': '" + msg + "' }";
+            int _playerid = MyPlayer.playerid;
+            try
+            {
+                StringBuilder SB = new StringBuilder();
+                if (type == CodeConfig.TYPE_UPLOAD_MY_MAP)
+                {
+                    if (opType == CodeConfig.TYPE_SAVE_UPLOAD)
+                    {
+                        SB.Append(CodeConfig.OP_SAVE_GAME);
+                    }
+                } else if (type == CodeConfig.TYPE_NEW_CLIENT)
+                {
+                    SB.Append(CodeConfig.OP_NEW_LOGIN);
+                }
+                SB.Append("{'playerid':");
+                SB.Append(_playerid);
+                SB.Append(", 'type':");
+                SB.Append(type);
+                SB.Append(",'msg': '");
+                SB.Append(msg);
+                SB.Append("' }");
+                SB.Append("\n"); 
+                byte[] buffer = Encoding.UTF8.GetBytes(SB.ToString());
+                clientSocket.Send(buffer);
+            }
+            catch (Exception e)
+            {
 
-            sendJson = sendJson + "\n";
-            byte[] buffer = Encoding.UTF8.GetBytes(sendJson);
-            clientSocket.Send(buffer);
-        } catch (Exception e)
-        {
-            
-        }
+            }
+        }).Start();
+        
         
     }
     private void HandleMyJson(MyJson myjson)
     {
-        /*
-        if (myjson.playerid == 1)
-        {
-            myjson.playerid = 2;
-        } else
-        {
-            myjson.playerid = 1;
-        }
-        */
         MyPlayer.otherPlayerManager.HandleMsg(myjson);
     }
     private void ReceiveMsg()

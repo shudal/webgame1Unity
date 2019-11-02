@@ -11,6 +11,7 @@ public class Player : MonoBehaviour
 
     public int playerid;
     public int horDirection = 0;
+    public int lastHorDir = 0;
     public string playerName;
     public Transform bottomTransformForStand;
     public int yForce = 350;
@@ -32,12 +33,30 @@ public class Player : MonoBehaviour
     // 水平移动
     public void Move(int _direction) {
         horDirection = _direction;
+        if (_direction != 0)
+        {
+            lastHorDir = _direction; 
+        }
     }
 
+    public void down()
+    { 
+        if (lastHorDir < 0)
+        {
+            transform.rotation = Quaternion.Euler(0, 0, 90);
+        } else {
+            transform.rotation = Quaternion.Euler(0, 0, -90);
+        }
+    }
     public void Jump()
     {
         myRigidbody2D.velocity = Vector2.zero;
+        if (!(transform.rotation.eulerAngles.z >= -20 && transform.rotation.eulerAngles.z <= 20))
+        {
+            transform.rotation = Quaternion.Euler(0, 0, 0);
+        }
         myRigidbody2D.AddForce(Vector2.up * yForce);
+       
     }
 
     private void IsGround()
@@ -64,6 +83,17 @@ public class Player : MonoBehaviour
             isgroud = false;
         }
     }
+    IEnumerator standGood()
+    {
+        while (true)
+        {
+            if (!(transform.rotation.eulerAngles.z >= -20 && transform.rotation.eulerAngles.z <= 20))
+            {
+                yield return new WaitForSeconds(0.5f);
+                transform.rotation = Quaternion.Euler(0, 0, 0);
+            }
+        }
+    }
     void Awake() {
         myRigidbody2D = GetComponent<Rigidbody2D>();
     }
@@ -71,6 +101,8 @@ public class Player : MonoBehaviour
     {
         groundCheck = transform.Find("detect_ground_1");
         groundCheck2 = transform.Find("detect_ground_2");
+
+        //StartCoroutine(standGood());
     }
 
     // Update is called once per frame
@@ -83,5 +115,6 @@ public class Player : MonoBehaviour
         }
 
         myRigidbody2D.centerOfMass = bottomTransformForStand.localPosition;
+        
     }
 }
